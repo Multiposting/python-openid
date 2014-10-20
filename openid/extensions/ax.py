@@ -438,10 +438,24 @@ class AXKeyValueMessage(AXMessage):
         """
         try:
             values = self.data[type_uri]
+            if not isinstance(values, list):
+                raise TypeError('Trying to add value to a single value.')
         except KeyError:
             values = self.data[type_uri] = []
 
         values.append(value)
+
+    def setValue(self, type_uri, value):
+        """Set a single value for the given attribute type to the
+        message. This replaces any values that have already been set
+        for this attribute.
+
+        @param type_uri: The URI for the attribute
+
+        @param value: A value to send for this attribute.
+        @type value: unicode
+        """
+        self.data[type_uri] = value
 
     def setValues(self, type_uri, values):
         """Set the values for the given attribute type. This replaces
@@ -471,11 +485,14 @@ class AXKeyValueMessage(AXMessage):
             alias = aliases.add(type_uri)
 
             ax_args['type.' + alias] = type_uri
-            ax_args['count.' + alias] = str(len(values))
 
-            for i, value in enumerate(values):
-                key = 'value.%s.%d' % (alias, i + 1)
-                ax_args[key] = value
+            if isinstance(values, list):
+                ax_args['count.' + alias] = str(len(values))
+                for i, value in enumerate(values):
+                    key = 'value.%s.%d' % (alias, i + 1)
+                    ax_args[key] = value
+            else:
+                ax_args['value.%s' % alias] = values
 
         return ax_args
 
@@ -652,7 +669,8 @@ class FetchResponse(AXKeyValueMessage):
                     values = []
                     zero_value_types.append(attr_info)
 
-                if (attr_info.count != UNLIMITED_VALUES) and \
+                if isinstance(values, list) and \
+                       (attr_info.count != UNLIMITED_VALUES) and \
                        (attr_info.count < len(values)):
                     raise AXError(
                         'More than the number of requested values were '
